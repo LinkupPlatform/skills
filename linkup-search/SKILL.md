@@ -1,280 +1,249 @@
 ---
 name: linkup-search
-description: "Guide for using the Linkup agentic web search API. Use when searching the web, scraping webpages, researching companies, extracting structured data from websites, or fetching webpage content via Linkup tools. Covers depth selection (standard vs deep), query writing, output types, the fetch endpoint, domain filtering and prioritization, and proven prompt patterns for business intelligence."
+description: "Use this skill whenever the agent has access to Linkup web search or fetch tools. Teaches the agent how to reason about query construction, choose search depth, write effective queries, select the right output type, use the fetch endpoint, and apply advanced techniques like sequential search and multi-query coverage. Applicable to any task involving web search, content extraction, company research, news retrieval, data enrichment, or real-time information gathering via Linkup."
 ---
 
-# Linkup Search — Agent Instructions
-
-Linkup is an agentic web search API. You instruct it what to retrieve. You do the reasoning.
-
----
-
-## Depth Selection
-
-**The one question:** Does step N's output need to feed into step N+1?
-
-- **No → `standard`** (€0.005)
-- **Yes → `deep`** (€0.05)
-
-**Rule of thumb:** One Google search → standard. Multiple tabs → deep.
-
-### Standard (`depth="standard"`)
-
-- Single iteration of retrieval
-- Can split into parallel sub-searches **only if** explicitly instructed or required
-- Can scrape **one** provided URL and run searches simultaneously
-- Cannot reuse outputs between steps (no chaining)
-
-### Deep (`depth="deep"`)
-
-- Up to **10 iterations** of retrieval
-- Each iteration aware of previous context
-- Supports **sequential instructions**: search → find URL → scrape URL → extract
-- Will refine or expand queries if information is missing
-
-### When deep is required
-
-Deep is for **chained sequential operations** where each step depends on the last:
-
-- Search → find URLs → scrape those URLs
-- Find a LinkedIn profile → scrape it → extract data
-- Find a pricing page → scrape it → extract plan details
-- Research across multiple pages with URL discovery
+This skill teaches you how to use Linkup's search and fetch tools effectively. Linkup is an agentic web search API — it interprets natural language instructions and executes retrieval steps to return accurate, real-time web data. Read this skill before making any Linkup search or fetch call.
 
 ---
 
-## Query Writing
+## 1. How to Construct a Query
 
-### Core principle
+Your Linkup query should focus on **data retrieval**, not answer generation. Tell Linkup what to find and where to look. Do the reasoning and synthesis yourself after receiving the results.
 
-Focus on **data retrieval**, not answer generation. You do the analysis.
+Before writing your query, reason through three questions in order. Each answer constrains the next.
 
-### Query styles
+### Step 1: What inputs do I already have?
 
-- **Simple lookups** → keywords: `"NVIDIA Q4 2024 revenue"`
-- **Complex extraction** → natural language instructions: what to find, where to look, what to extract
-- **Broad research** → `"Run several searches with adjacent keywords"`
-- **Scraping** → include the URL and say what to extract
+| I have... | Then... |
+| --- | --- |
+| A specific URL | Scrape it directly — don't waste a search finding it |
+| A company name, topic, or question (no URL) | You'll need to search |
+| Both a URL and a broader question | Combine: scrape the known URL + search for the rest |
 
-### The four components of a strong prompt
+### Step 2: Where does the data I need live?
 
-| Component | Purpose | Example |
-|-----------|---------|---------|
-| **Goal** | What to find | "Find data to estimate TCO of Total SA's intranet" |
-| **Scope** | Where to look | "Analyze homepage, about page, and blog" |
-| **Criteria** | What to extract | "Products, business model, target market" |
-| **Format** | How to return it | "Return as bullet points with sources" |
+| The data I need is... | Example | Then... |
+| --- | --- | --- |
+| In search snippets (titles, short excerpts, factual claims) | A funding amount, a launch date, a job title | `standard` is enough — snippets will contain the answer |
+| On full web pages (tables, detailed specs, long-form content) | A pricing table, a job listing, an article's body text | You need to **scrape** the page |
+| I'm not sure | — | Default to `deep` |
 
-### When simple prompts are enough
+### Step 3: Do I need to chain steps sequentially?
 
-For **breadth** (source coverage) over precision, keep it simple:
+| Scenario | Sequential? | Depth |
+| --- | --- | --- |
+| All the information can be gathered in parallel searches | No | `standard` |
+| I have one URL and just need to scrape it | No | `standard` (one URL) or `/fetch` |
+| I need to find URLs first, then scrape them | Yes | `deep` |
+| I need to scrape a page, then search again based on what I found | Yes | `deep` |
+| I need to scrape multiple known URLs | Yes | `deep` |
 
-- `"Find latest research on consciousness. Run several searches with adjacent keywords."`
-- `"Find recent news about OpenAI. Run several searches with adjacent keywords."`
+When uncertain, default to `deep`.
 
-Use structured prompts when you need specific data points, page scraping, or defined output formats.
-
-### Bad vs good queries
-
-| Bad | Good (standard) | Good (deep) |
-|-----|-----------------|-------------|
-| Tell me about the company | Scrape {url}. Extract what it does, who it serves, main differentiator. | Find homepage, product page, about page, LinkedIn. Scrape each. Return: what it does, products, target customers, value proposition. |
-| Analyze GTM motion | Search if {company} uses self-service signup, free trials, or demos. Scrape {url}. Return PLG or SLG with evidence. | Find and scrape homepage, pricing page, signup flow. Extract: self-service options, free trial, demo CTAs, pricing transparency. Determine PLG vs SLG. |
-
----
-
-## Output Types
-
-| Type | Use case | Notes |
-|------|----------|-------|
-| `searchResults` | LLM grounding, agent consumption | Raw source chunks. Default for agents. |
-| `sourcedAnswer` | User-facing Q&A | Answer with citations. Set `includeInlineCitations: true` for inline refs. |
-| `structured` | Pipelines, data extraction | JSON matching a schema via `structuredOutputSchema` (root must be type `object`). Set `includeSources: true` to get sources alongside. |
-
----
-
-## Domain Filtering and Prioritization
-
-### Include / Exclude
-
-- `includeDomains`: Only search these domains (up to 100)
-- `excludeDomains`: Never search these domains (up to 50)
-- If both used, results only include URLs matching inclusion
-
-### Prioritize with `<guidance>` tags
-
-Use XML structure **inside the query string** to prioritize specific sources:
+### Worked Examples
 
 ```
-<guidance>
-Use only the sources listed here. Do not rely on any external references.
-  - wikipedia.org
-  - lvmh.com
-<priority>
-  - wikipedia.org
-</priority>
-</guidance>
-Who is the CEO of LVMH?
+Inputs: company name only, no URL
+Data needed: pricing details (lives on a full page, not in snippets)
+Sequential: yes — need to find the pricing page first, then scrape it
+→ depth="deep"
+→ query: "Find the pricing page for {company}. Scrape it. Extract plan names, prices, and features."
+```
+
+```
+Inputs: company name only, no URL
+Data needed: latest funding round amount (lives in search snippets)
+Sequential: no
+→ depth="standard"
+→ query: "Find {company}'s latest funding round amount and date"
+```
+
+```
+Inputs: a specific URL (https://example.com/pricing)
+Data needed: pricing details from that page
+Sequential: no — I already have the URL
+→ depth="standard" or /fetch
+→ query: "Scrape https://example.com/pricing. Extract plan names, prices, and included features."
+```
+
+```
+Inputs: a company name
+Data needed: the company's ICP, inferred from homepage + blog + case studies
+Sequential: yes — need to find pages, then scrape them, then synthesize
+→ depth="deep"
+→ query: "Find and scrape {company}'s homepage, use case pages, and 2-3 recent blog posts. Extract: industries mentioned, company sizes referenced, job titles targeted, and pain points addressed."
 ```
 
 ---
 
-## Fetch Endpoint
+## 2. Choosing Search Depth
 
-Use `/fetch` instead of `/search` when you have one known URL and just need its content as markdown.
+Linkup supports two search depths. Your answers from Section 1 determine which to use.
 
-| Parameter | Type | Required | Notes |
-|-----------|------|----------|-------|
-| `url` | string (URI) | ✓ | URL to fetch |
-| `renderJs` | boolean | No (default: false) | Render JavaScript |
-| `includeRawHtml` | boolean | No | Include raw HTML in response |
-| `extractImages` | boolean | No | Extract images from page |
+### Standard (`depth="standard"`) — €0.005/call
 
-**Pricing:**
+- Can run multiple parallel web searches if instructed
+- Can scrape **one** URL if provided in the prompt
+- Cannot scrape multiple URLs
+- Cannot use URLs discovered in search results to scrape them
 
-| renderJs | Cost | When to use |
-|----------|------|-------------|
-| `false` | €0.001 | Static pages, blogs, documentation |
-| `true` | €0.005 | SPAs, JS-rendered content, dynamic pages |
+### Deep (`depth="deep"`) — €0.05/call
 
-Default to `renderJs: false`. Only use `true` when content requires JavaScript rendering.
+- Executes up to 10 iterative retrieval passes, each aware of prior context
+- Can scrape multiple URLs
+- Can use URLs discovered in search results to scrape them
+- Supports sequential instructions (outputs from one step feed the next)
 
-**Response:** Returns `markdown` (string), optionally `rawHtml` (string) and `images` (array of `{url, alt}`).
+> **When uncertain, default to `deep`.**
 
----
-
-## Parameters Reference
-
-### /search
-
-| Parameter | Type | Required | Notes |
-|-----------|------|----------|-------|
-| `q` | string | ✓ | The search query |
-| `depth` | `"standard"` \| `"deep"` | ✓ | |
-| `outputType` | `"searchResults"` \| `"sourcedAnswer"` \| `"structured"` | ✓ | |
-| `structuredOutputSchema` | JSON string | When structured | Root must be type `object` |
-| `includeSources` | boolean | No | For structured output only. Modifies response schema. |
-| `includeInlineCitations` | boolean | No | For sourcedAnswer only |
-| `includeImages` | boolean | No | Include images in results |
-| `fromDate` | YYYY-MM-DD | No | Filter results from this date |
-| `toDate` | YYYY-MM-DD | No | Filter results until this date |
-| `includeDomains` | string[] | No | Up to 100 domains |
-| `excludeDomains` | string[] | No | Up to 50 domains |
-| `maxResults` | number | No | Limit number of results returned |
+**Cost tip:** 3–5 parallel `standard` calls with focused sub-queries is often faster and cheaper than one `deep` call. Reserve `deep` for when you need to scrape multiple URLs or chain search → scrape.
 
 ---
 
-## Prompt Templates
+## 3. Choosing Output Type
 
-### Company overview (deep)
+| Output Type | Returns | Use When |
+| --- | --- | --- |
+| `searchResults` | Array of `{name, url, content}` | You need raw sources to reason over, filter, or synthesize yourself |
+| `sourcedAnswer` | Natural language answer + sources | The answer will be shown directly to a user (chatbot, Q&A) |
+| `structured` | JSON matching a provided schema | Results feed into automated pipelines, CRM updates, data enrichment |
 
-```
-You are an expert business analyst. Generate a detailed description of {company}.
-Consult: homepage, product page, about page, LinkedIn profile.
-First find these page URLs, then scrape each. Do not stop until all scraped.
-Return: what it does, products/services, target customers, value proposition, founding story.
-```
+**Default choice:** Use `searchResults` when you will process the results. Use `sourcedAnswer` when the user needs a direct answer. Use `structured` when downstream code needs to parse the output.
 
-### ICP extraction (deep)
+---
 
-```
-Determine {company}'s Ideal Customer Profile.
-Find and scrape: homepage, use case pages, 2-3 recent blog posts.
-Extract: industries mentioned, company sizes, job titles targeted, pain points addressed.
-Also extract visible customer logos.
-Infer: industry, company size, buyer persona, key pain points.
-```
+## 4. Writing Effective Queries
 
-### Value proposition mapping (deep)
+Rule of thumb: The level of complexity and the choice of depth of your query ofen depends on the use case:
+- Conversational chatbot where low latency is important: keep prompts simples, keyword style, standard depth
+- Deep researcher: more detailed more, leverage scraping, deep depth
 
-```
-Map {company}'s value proposition from {website}.
-Find and scrape homepage and primary product pages.
-Extract: headline claims, customer benefits, differentiator language, CTAs.
-Synthesize into value proposition summary. Focus on concrete claims, not marketing fluff.
-```
+### Be specific
 
-### GTM motion analysis (deep)
+| Bad | Good |
+| --- | --- |
+| "Tell me about the company" | "Find {company}'s annual revenue and employee count" |
+| "Microsoft revenue" | "Microsoft fiscal year 2024 total revenue" |
+| "React hooks" | "React useEffect cleanup function best practices" |
+| "AI news" | "OpenAI product announcements January 2026" |
 
-```
-Determine if {company} follows PLG or SLG.
-Find and scrape: homepage, pricing page, signup flow.
-Extract: self-service signup options, free trial availability, demo CTAs,
-  sales contact requirements, pricing transparency.
-Conclude PLG or SLG with evidence.
-```
+**Add context:** dates ("Q4 2025"), locations ("French company Total"), versions ("since React 19"), domains ("on sec.gov").
 
-### LinkedIn research (deep, sequential)
+### Keyword-style for simple lookups
+
+Short keyword queries work fine for straightforward facts:
 
 ```
-Find LinkedIn posts on {topic}.
-For each URL, extract the LinkedIn comments.
+"Bitcoin price today"
+"NVIDIA Q4 2024 revenue"
+"Anthropic latest funding round"
+```
+
+### Instruction-style for complex extraction
+
+When you need specific extraction or multi-step retrieval, write your query as a natural language instruction — what to find, where to look, what to extract:
+
+```
+"Find Datadog's current pricing page. Extract plan names, per-host prices, and included features for each tier."
+```
+
+```
+"Find Acme Corp's investor relations page on acme.com. Extract the most recent quarterly revenue figure and year-over-year growth rate."
+```
+
+### Request parallel searches for breadth
+
+For broad research, explicitly ask for multiple passes. This works even in `standard`:
+
+```
+"Find recent news about OpenAI. Run several searches with adjacent keywords including 'OpenAI funding', 'OpenAI product launch', and 'OpenAI partnership announcements'."
+```
+
+Or issue 3–5 separate `standard` calls from your agent, each with a focused sub-query:
+```
+Query 1: "Datadog current annual recurring revenue from latest earnings"
+Query 2: "Datadog number of customers over $100k ARR"
+Query 3: "Datadog net revenue retention rate from investor presentations"
+```
+
+### Sequential instructions (deep only)
+
+When you need to discover a URL then extract from it, be explicit about the sequence:
+
+```
+"First, find the LinkedIn company page for Snowflake. Then scrape the page and extract: employee count, headquarters, industry, and company description."
+```
+
+### Scrape a known URL (standard: one URL max)
+
+If you already have a URL, include it in the prompt. In `standard`, this is limited to **one URL per call**:
+
+```
+"Scrape https://example.com/pricing. Extract all plan names, prices, and feature lists."
+```
+
+You can combine one scrape + search in a single `standard` call:
+
+```
+"Scrape https://linkup.so. Also search for articles mentioning Linkup clients. Return a list of known clients with the source of each."
+```
+
+To scrape **multiple URLs**, or to scrape URLs discovered during search, use `deep`.
+
+---
+
+## 5. Using the `/fetch` Endpoint
+
+When your agent already knows the exact URL, use `/fetch` instead of `/search`. It's faster, cheaper, and purpose-built for single-page extraction.
+
+| Use `/fetch` when... | Use `/search` when... |
+| --- | --- |
+| You have a specific URL and want its content as markdown | You don't know which URL has the answer |
+| You're scraping a known page (pricing, article, docs) | You need results from multiple pages |
+| Your agent found a URL in a previous step and needs to read it | You need Linkup's agentic retrieval to find and extract |
+
+**Default to `renderJs: true`.** Many sites load content via JavaScript. The latency tradeoff is almost always worth the reliability gain.
+
+---
+
+## 6. Advanced Techniques
+
+### LinkedIn extraction (if you have the LinkedIn URL of the person/company/post -> standard)
+
+- return the linkedin profile details of {{linkedin_url}} 
+- return the last 10 linkedin posts of {{linkedin_url}} 
+- return the last 10 linkedin comments of {{linkedin_url}}
+- extracts the comments from {{linkedin_post_url}}
+
+### LinkedIn extraction (if you need to search for the LinkedIn URL first -> deep)
+
+```
+First find LinkedIn posts about context engineering.
+Then, for each URL, extract the post content and comments.
 Return the LinkedIn profile URL of each commenter.
 ```
 
-### Simple research (standard)
+### Date filtering and domain filtering
+
+Use `fromDate` and `toDate` to limit results to a time window:
 
 ```
-Find {company}'s latest funding round amount and date.
+Query: "Find news about Anthropic product launches"
+fromDate: "2025-01-01"
+toDate: "2025-03-31"
 ```
 
-### Scrape + search in parallel (standard)
+Use `includeDomains` to focus on specific sources, or `excludeDomains` to remove noise:
 
 ```
-Scrape {url} and extract what the company does and its services.
-Also search for "{company name}" to find directory or registry listings.
+Query: "Find Tesla's latest quarterly earnings data"
+includeDomains: ["tesla.com", "sec.gov"]
 ```
 
----
+Instructions: for both domain filtering and date filtering, only use if implicitly or explicitly instructed to do so.
 
-## Errors
-
-| Code | Meaning |
-|------|---------|
-| 400 | Missing/invalid parameter **or** no results found |
-| 401 | Invalid API key |
-| 403 | No permission |
-| 409 | Resource conflict |
-| 429 | Out of credit **or** rate limited |
-| 500 | Linkup server error |
-
-**No credit is deducted on any error**, including when no results are found.
-
-**Rate limit:** 10 queries per second per organization.
-
-**SDK error types:** `LinkupInvalidRequestError`, `LinkupNoResultError`, `LinkupAuthenticationError`, `LinkupInsufficientCreditError`, `LinkupTooManyRequestsError`, `LinkupUnknownError`.
-
----
-
-## Common Mistakes
-
-| Mistake | Fix |
-|---------|-----|
-| Starting with deep when standard works | Start standard. Escalate if results are thin. |
-| Vague query: "Tell me about the company" | Specify what you need: revenue? product? team? |
-| Asking standard to find URLs then scrape them | Use deep — this requires sequential chaining |
-| Not including a URL you already have | Include it and say "scrape this page" |
-| Asking Linkup to analyze or reason | Ask for data. You do the analysis. |
-| Using `renderJs: true` for static pages | Default to `false`. Only `true` for JS-rendered SPAs. |
-| Ignoring that 400 can mean no results | Handle gracefully. Retry with broader query. |
-| Firing >10 parallel calls | Rate limit is 10 qps/org. Stagger if needed. |
-
----
-
-## Pricing
-
-| Endpoint | Variant | Cost |
-|----------|---------|------|
-| /search | standard | €0.005 |
-| /search | deep | €0.05 |
-| /fetch | renderJs: false | €0.001 |
-| /fetch | renderJs: true | €0.005 |
-
-**Cost optimization:** 3–5 parallel standard calls with focused sub-queries (€0.015–0.025) is often faster and cheaper than one deep call (€0.05). Use when sub-queries are independent.
-
----
-
-## MCP Setup
+## 7. MCP Setup
 
 Two tools: `linkup-search` (query, depth) and `linkup-fetch` (url, renderJs).
 
@@ -291,16 +260,12 @@ Auth format (v2.x): `apiKey=YOUR_API_KEY` in args. Old v1.x `env` format no long
 ## Quick Reference
 
 ```
-STANDARD (€0.005): parallel sub-searches ✓  scrape one provided URL ✓  sequential chains ✗
-DEEP (€0.05):      up to 10 iterations ✓   sequential chains ✓       multi-URL scraping ✓
-FETCH:             one known URL → €0.001 (no JS) or €0.005 (with JS)
-RATE LIMIT:        10 queries/second per organization
-OUTPUT:            searchResults (default) | sourcedAnswer | structured
-DEPTH DECISION:    Does step N feed into step N+1? Yes → deep. No → standard.
-QUERIES:           Keywords for facts. Instructions for extraction. Be specific.
-COVERAGE:          "Run several searches with adjacent keywords" (works in standard)
-ERRORS:            No credit deducted on errors. 400 can mean no results. 429 = credit or rate limit.
-DOMAIN PRIORITY:   Use <guidance> + <priority> XML tags in query string
-MCP TOOLS:         linkup-search (query, depth) + linkup-fetch (url, renderJs)
-MCP REMOTE:        https://mcp.linkup.so/mcp?apiKey=YOUR_API_KEY
+STANDARD:  €0.005. Parallel searches ✓  Scrape one provided URL ✓  Scrape multiple URLs ✗  Chain search→scrape ✗
+DEEP:      €0.05.  Iterative searches ✓  Scrape multiple URLs ✓   Chain search→scrape ✓
+UNCERTAIN: Default to deep.
+OUTPUT:    searchResults (raw sources)  |  sourcedAnswer (natural language)  |  structured (JSON schema)
+FETCH:     Single known URL → /fetch with renderJs: true
+QUERIES:   Keyword for simple lookups. Instruction-style for complex extraction. Be specific.
+COVERAGE:  "Run several searches with adjacent keywords" for breadth (works in standard).
+CHAINING:  "First find X, then scrape X" — deep only.
 ```

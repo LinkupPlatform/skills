@@ -13,7 +13,7 @@ Skills are **knowledge for AI agents**, not tools. They provide procedural knowl
 ## Getting Started
 
 ```bash
-npx skills add linkup-so/skills
+npx skills add LinkupPlatform/skills
 ```
 
 ## Learn More

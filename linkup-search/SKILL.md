@@ -274,6 +274,20 @@ Also search for "{company name}" to find directory or registry listings.
 
 ---
 
+## MCP Setup
+
+Two tools: `linkup-search` (query, depth) and `linkup-fetch` (url, renderJs).
+
+| Client | Setup |
+|--------|-------|
+| **VS Code / Cursor** | Add to MCP config: `{"servers":{"linkup":{"url":"https://mcp.linkup.so/mcp?apiKey=YOUR_API_KEY","type":"http"}}}` |
+| **Claude Code** | `claude mcp add --transport http linkup https://mcp.linkup.so/mcp?apiKey=YOUR_API_KEY` |
+| **Claude Desktop** | Download [MCPB bundle](https://github.com/LinkupPlatform/linkup-mcp-server/releases/latest/download/linkup-mcp-server.mcpb), double-click to install |
+
+Auth format (v2.x): `apiKey=YOUR_API_KEY` in args. Old v1.x `env` format no longer works.
+
+---
+
 ## Quick Reference
 
 ```
@@ -287,4 +301,6 @@ QUERIES:           Keywords for facts. Instructions for extraction. Be specific.
 COVERAGE:          "Run several searches with adjacent keywords" (works in standard)
 ERRORS:            No credit deducted on errors. 400 can mean no results. 429 = credit or rate limit.
 DOMAIN PRIORITY:   Use <guidance> + <priority> XML tags in query string
+MCP TOOLS:         linkup-search (query, depth) + linkup-fetch (url, renderJs)
+MCP REMOTE:        https://mcp.linkup.so/mcp?apiKey=YOUR_API_KEY
 ```

@@ -12,9 +12,29 @@ Skills are **knowledge for AI agents**, not tools. They provide procedural knowl
 
 ## Getting Started
 
+### Prerequisites
+
+- A [Linkup API key](https://app.linkup.so) (free tier available)
+- Linkup connected to your agent via [MCP](https://docs.linkup.so/pages/integrations/mcp/mcp), [SDK](https://docs.linkup.so/pages/sdk/python/python), or [direct API](https://docs.linkup.so/pages/documentation/get-started/quickstart)
+
+### Install the Skill
+
 ```bash
 npx skills add LinkupPlatform/skills
 ```
+
+This installs the `linkup-search` skill into your project. The installer detects your environment and places the skill file where your agent will find it automatically.
+
+### Supported Environments
+
+| Environment | How it loads |
+|---|---|
+| **Claude Code** | Loaded automatically when relevant |
+| **Cursor** | Loaded via `.cursor/rules/` |
+| **Windsurf** | Loaded via `.windsurfrules` |
+| **Cline / GitHub Copilot** | Loaded from project-level instruction files |
+
+Once installed, no manual invocation is needed — agents detect the skill and reference it whenever they handle web search, content extraction, or research tasks via Linkup.
 
 ## Learn More
 

@@ -25,6 +25,7 @@ Before writing your query, reason through three questions in order. Each answer 
 
 | The data I need is... | Example | Then... |
 | --- | --- | --- |
+| A single fact in search snippets | CEO name, current stock price, a specific date | `fast` is enough — sub-second response |
 | In search snippets (titles, short excerpts, factual claims) | A funding amount, a launch date, a job title | `standard` is enough — snippets will contain the answer |
 | On full web pages (tables, detailed specs, long-form content) | A pricing table, a job listing, an article's body text | You need to **scrape** the page |
 | I'm not sure | — | Default to `deep` |
@@ -42,6 +43,14 @@ Before writing your query, reason through three questions in order. Each answer 
 When uncertain, default to `deep`.
 
 ### Worked Examples
+
+```
+Inputs: company name only
+Data needed: CEO name (single fact)
+Sequential: no
+→ depth="fast"
+→ query: "Who is the CEO of {company}?"
+```
 
 ```
 Inputs: company name only, no URL
@@ -79,7 +88,23 @@ Sequential: yes — need to find pages, then scrape them, then synthesize
 
 ## 2. Choosing Search Depth
 
-Linkup supports two search depths. Your answers from Section 1 determine which to use.
+Linkup supports three search depths. Your answers from Section 1 determine which to use.
+
+### Fast (`depth="fast"`) — €0.005/call (Beta)
+
+- Sub-second response time, optimized for lowest latency
+- Best for **focused queries** — one specific piece of information
+- Returns search results and relevant content snippets only
+- Cannot scrape URLs or chain steps
+- Ideal for conversational use cases, real-time lookups, and high-volume pipelines
+
+| Use `fast` | Use `standard` instead |
+| --- | --- |
+| "Who is the CEO of OpenAI?" | "Find the pricing, features, and customer reviews for Notion" |
+| "Current EUR/USD exchange rate" | "Current EUR/USD exchange rate and analysts analysis" |
+| "What is Linkup's website?" | "What is Linkup's website and LinkedIn URL" |
+
+**Rule of thumb:** If your prompt is short and you're looking for **one specific thing**, use `fast`. If your prompt is longer or spans multiple topics, use `standard`.
 
 ### Standard (`depth="standard"`) — €0.005/call
 
@@ -115,9 +140,10 @@ Linkup supports two search depths. Your answers from Section 1 determine which t
 
 ## 4. Writing Effective Queries
 
-Rule of thumb: The level of complexity and the choice of depth of your query ofen depends on the use case:
-- Conversational chatbot where low latency is important: keep prompts simples, keyword style, standard depth
-- Deep researcher: more detailed more, leverage scraping, deep depth
+Rule of thumb: The level of complexity and the choice of depth of your query often depends on the use case:
+- Conversational chatbot where low latency is critical: short focused queries, keyword style, `fast` depth
+- General assistant with multiple data needs: keyword or instruction style, `standard` depth
+- Deep researcher: detailed prompts, leverage scraping, `deep` depth
 
 ### Be specific
 
@@ -260,9 +286,10 @@ Auth format (v2.x): `apiKey=YOUR_API_KEY` in args. Old v1.x `env` format no long
 ## Quick Reference
 
 ```
+FAST:      €0.005. Sub-second ✓  One focused query ✓  Scrape ✗  Chain ✗  (Beta - best for simple lookups)
 STANDARD:  €0.005. Parallel searches ✓  Scrape one provided URL ✓  Scrape multiple URLs ✗  Chain search→scrape ✗
 DEEP:      €0.05.  Iterative searches ✓  Scrape multiple URLs ✓   Chain search→scrape ✓
-UNCERTAIN: Default to deep.
+UNCERTAIN: Default to deep. For simple single-fact queries, try fast first.
 OUTPUT:    searchResults (raw sources)  |  sourcedAnswer (natural language)  |  structured (JSON schema)
 FETCH:     Single known URL → /fetch with renderJs: true
 QUERIES:   Keyword for simple lookups. Instruction-style for complex extraction. Be specific.

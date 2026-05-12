@@ -90,7 +90,7 @@ Sequential: yes — need to find pages, then scrape them, then synthesize
 
 Linkup supports three search depths. Your answers from Section 1 determine which to use.
 
-### Fast (`depth="fast"`) — €0.005/call (Beta)
+### Fast (`depth="fast"`) — $0.005/call (Beta, with `outputType: "searchResults"`; $0.006/call for `"sourcedAnswer"` / `"structured"`)
 
 - Sub-second response time, optimized for lowest latency
 - Best for **focused queries** — one specific piece of information
@@ -106,14 +106,14 @@ Linkup supports three search depths. Your answers from Section 1 determine which
 
 **Rule of thumb:** If your prompt is short and you're looking for **one specific thing**, use `fast`. If your prompt is longer or spans multiple topics, use `standard`.
 
-### Standard (`depth="standard"`) — €0.005/call
+### Standard (`depth="standard"`) — $0.005/call (with `outputType: "searchResults"`; $0.006/call for `"sourcedAnswer"` / `"structured"`)
 
 - Can run multiple parallel web searches if instructed
 - Can scrape **one** URL if provided in the prompt
 - Cannot scrape multiple URLs
 - Cannot use URLs discovered in search results to scrape them
 
-### Deep (`depth="deep"`) — €0.05/call
+### Deep (`depth="deep"`) — $0.05/call (with `outputType: "searchResults"`; $0.055/call for `"sourcedAnswer"` / `"structured"`)
 
 - Executes up to 10 iterative retrieval passes, each aware of prior context
 - Can scrape multiple URLs
@@ -286,9 +286,9 @@ Auth format (v2.x): `apiKey=YOUR_API_KEY` in args. Old v1.x `env` format no long
 ## Quick Reference
 
 ```
-FAST:      €0.005. Sub-second ✓  One focused query ✓  Scrape ✗  Chain ✗  (Beta - best for simple lookups)
-STANDARD:  €0.005. Parallel searches ✓  Scrape one provided URL ✓  Scrape multiple URLs ✗  Chain search→scrape ✗
-DEEP:      €0.05.  Iterative searches ✓  Scrape multiple URLs ✓   Chain search→scrape ✓
+FAST:      $0.005 (searchResults) / $0.006 (sourcedAnswer, structured). Sub-second ✓  One focused query ✓  Scrape ✗  Chain ✗  (Beta - best for simple lookups)
+STANDARD:  $0.005 (searchResults) / $0.006 (sourcedAnswer, structured). Parallel searches ✓  Scrape one provided URL ✓  Scrape multiple URLs ✗  Chain search→scrape ✗
+DEEP:      $0.05  (searchResults) / $0.055 (sourcedAnswer, structured). Iterative searches ✓  Scrape multiple URLs ✓   Chain search→scrape ✓
 UNCERTAIN: Default to deep. For simple single-fact queries, try fast first.
 OUTPUT:    searchResults (raw sources)  |  sourcedAnswer (natural language)  |  structured (JSON schema)
 FETCH:     Single known URL → /fetch with renderJs: true

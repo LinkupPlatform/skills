@@ -152,5 +152,5 @@ Send events to Slack, CRM, investor databases, or newsletters.
 
 - Syndicated news can create duplicates.
 - Some funding signals are rumors; label confidence.
-- Date filtering matters for recurring monitors.
+- Set `fromDate` to the last run date so each run returns only newly published items.
 - Use `/v1/research` when the user asks for an assessment of an uncertain event, not just alerts.

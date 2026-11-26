@@ -19,9 +19,10 @@ The installer detects your environment and places the skills where your agent fi
 | Skill | Use for |
 |-------|---------|
 | `linkup-search` | Any web lookup or research query — the default. Depth selection, output types, query-as-retrieval-plan |
-| `linkup-fetch` | Reading one known URL as clean Markdown |
+| `linkup-fetch` | Reading one known URL as clean Markdown or typed JSON (`schema`) |
 | `linkup-research` | Minutes-long, multi-source investigations via `/v1/research` |
-| `linkup-extract` | Bulk structured rows from one listing page via `/v1/extract` |
+| `linkup-tasks` | Running many search, fetch, or research calls as one async batch via `/v1/tasks` |
+| `linkup-extract` | Bulk structured rows from one listing page via `/v1/extract` (closed beta) |
 | `linkup-workflow` | Turning a business goal into a multi-step Linkup workflow, with 18 bundled recipes |
 
 Each skill is self-contained: the knowledge files it relies on are bundled in its own `references/` directory.

@@ -29,7 +29,7 @@ First choose the request shape:
 
 1. Pick `depth`.
 2. Pick `outputType`.
-3. Pick hard API parameters.
+3. Add any necessary API parameters.
 4. Decide whether the work is independent or sequential.
 5. Then write the query so Linkup's retrieval plan is obvious.
 
@@ -56,7 +56,12 @@ to retrieve specific evidence.
 
 Choose the smallest Linkup request shape that can produce the required evidence.
 
-Use `fast` when the job is one simple lookup and snippets are enough.
+Use `flash` (Alpha) when the job is one keyword-shaped lookup, snippets are enough, and latency is
+the constraint (under 200 ms). Use `fast` for the same shape when ~1s is acceptable and you want a
+higher-quality single pass. Neither follows instructions; the query goes to the index as written
+(time-sensitive queries get the current date added). Snippets are trimmed to the passages relevant to
+the query, so when the answer needs a whole page (tables, specs, long-form), plan a scrape or a
+`/fetch`.
 
 Use `standard` when all useful retrieval work can be planned upfront.
 
@@ -69,10 +74,21 @@ Use `sourcedAnswer` when a human needs a direct answer with citations.
 
 Use `structured` when software needs fields. Always include `structuredOutputSchema`.
 
-Use API parameters for hard constraints such as domains, dates, images, and result limits.
+Use source filtering only if you know exactly the URLs or domains you are targeting or not targeting.
+Do not infer source filters from preferences such as "official sources."
+Use `fromDate`/`toDate` when the question is about a time window (news, filings, what is new since the
+last run). Every result then has a publication date in the window, and undated pages, often official
+pages and docs, are dropped, so do not use them for facts that are not tied to a date.
+Use other API parameters when the request requires them, such as images or result limits. Without
+`maxResults`, Search returns up to 10 results (20 before December 1, 2026).
 
-Important: `fetch` can read page content, but it cannot produce structured output from a page. If the
-final result must be structured fields, use Search API with `outputType: structured`.
+Important: when the URL is already known, prefer `/fetch` over a search. Pass `schema` (and optional
+`instructions`) to get typed JSON from that page in the same call; leave it out for markdown. Use
+Search with `outputType: structured` only when the URL still has to be discovered. `/fetch` reads one
+page and does not follow links; for many rows across pagination use `/extract`.
+
+If the request is a batch (many entities, a nightly job), plan the individual calls as usual and then
+submit them through `/tasks` instead of looping synchronous calls.
 
 ## Step 3: Match Query Shape To Depth
 
@@ -148,7 +164,7 @@ Before sending the request, verify:
 - `standard` is used for upfront fan-out, not hidden sequencing.
 - `deep` is used for result reuse, not just because the request feels important.
 - The query names exact fields and source rules.
-- Hard constraints are set as API parameters.
+- Source filters are used only for exact known target or exclusion URLs or domains.
 - `structured` has a schema.
 - The query does not invent URLs, domains, entities, or facts.
 

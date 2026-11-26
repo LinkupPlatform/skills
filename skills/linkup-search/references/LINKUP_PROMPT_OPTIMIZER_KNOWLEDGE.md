@@ -15,6 +15,9 @@ The optimizer should output:
 - optional API parameters such as `includeDomains`, `excludeDomains`, `fromDate`, `toDate`, and
   `maxResults`
 
+Use source filtering only if you know exactly the URLs or domains you are targeting or not targeting.
+Use `fromDate`/`toDate` only when the question is about a time window (see Date Filter Rules).
+
 ## Core Goal
 
 Optimize for retrieval behavior, not prose quality. The query sent to Linkup is an instruction to a
@@ -38,8 +41,7 @@ A rewrite can improve tool calls and still fail if it narrows to the wrong sourc
 
 ## How Linkup Uses The Query
 
-The Search API receives a request with a query, depth, output type, and optional domain/date
-filters and image flag.
+The Search API receives a request with a query, depth, output type, and optional request settings.
 
 The high-level flow is:
 
@@ -53,15 +55,20 @@ mainly affects the retrieval step.
 
 ## Depth Rules
 
-Use `fast` when:
+Use `flash` or `fast` when:
 
 - the user needs one simple, latency-sensitive lookup
 - snippets are enough
 - the query can be short and keyword-like
 - latency matters more than interpretation
 
-`fast` is not agentic. In current behavior, it sends the query directly to a single web search.
-Prompt wording will not make `fast` scrape, chain, or decompose the task.
+Pick `flash` (Alpha) when latency is the hard constraint (under 200 ms: chat, voice, autocomplete).
+Pick `fast` when ~1s is acceptable and you want a higher-quality single pass. Both cost the same.
+
+Neither `flash` nor `fast` is agentic. They send the query directly to the index as written; the only
+change is that time-sensitive queries get the current date added ("Telekom CEO" is searched as
+"Telekom CEO November 2026"). Prompt wording will not make them scrape, chain, decompose the task, or
+honor instructions.
 
 Good:
 
@@ -146,9 +153,10 @@ Example: use `Airbus "Engineering Bill of Materials" EBOM`, not only `Airbus EBO
 
 Classify the user's objective before writing the query:
 
-- Single known fact: use `fast` or `standard`; concise keyword query.
+- Single known fact: use `flash` (latency-critical), `fast`, or `standard`; concise keyword query.
 - A few independent facts: use `standard`; ask for separate searches per fact.
-- One known URL to read: use `standard` or `/fetch`; say "scrape" and list extraction fields.
+- One known URL to read: use `/fetch` (with `schema` if code needs fields), or `standard` with
+  "scrape" and the extraction fields.
 - Unknown URL then page extraction: use `deep`; say "first find, then scrape."
 - Multiple known URLs: use `deep`, or several parallel `standard`/`fetch` calls outside one request.
 - Multi-entity or multi-dimension research: use `deep`; make the structure explicit.
@@ -223,8 +231,8 @@ Use with:
 }
 ```
 
-Only add `includeDomains` when the user provided the domain, a previous result found it, or the
-domain is otherwise explicit. Do not invent domains.
+Only add a source filter if this is the exact URL or domain to target or exclude. The user must have
+provided it, or a previous result must have found it. Do not infer or invent source filters.
 
 ## Tool-Specific Rules
 
@@ -249,6 +257,11 @@ search tasks.
 ### Web Scraping
 
 Use scraping when the URL is known, or in `deep` after search results reveal a URL.
+
+When the URL is known and nothing else needs searching, `/fetch` is the cheaper, more direct tool:
+`renderJs: true` for dynamic pages, `mode: "pro"` if the page comes back empty, and `schema` when
+code needs typed fields from the page. Reserve the `standard` "scrape {url}" prompt for the case
+where one scrape and several searches should run together.
 
 Prompts that steer scraping well:
 
@@ -328,28 +341,37 @@ Look up 494367584.
 
 An unspecified number is treated as a general web search.
 
+## Date Filter Rules
+
+Set `fromDate`/`toDate` (ISO 8601, `YYYY-MM-DD`) when the question is about a time window: news,
+announcements, filings, posts, or a monitor that wants only what is new since its last run. Every
+result returned then has a publication date inside the window (`publishedAt`). Writing the period
+into `q` does not restrict results the same way.
+
+Pages without a known publication date are dropped, and official pages and docs often have none. Do
+not set date filters for facts that are not tied to a publication date (pricing, leadership, specs,
+documentation). When the primary source matters, also run the query without the filter.
+
+Good:
+
+```text
+q: OpenAI news
+fromDate: 2026-11-01
+```
+
+Bad (no publication date to filter on; the official page would be dropped):
+
+```text
+q: Stripe Connect documentation
+fromDate: 2026-11-01
+```
+
 ## Source Constraint Rules
 
-Use hard API filters when the source family matters. Preference text such as "prefer PubMed" can be
-too weak.
-
-Use the narrowest reliable domain. A broad official domain can be noisy: `gov.uk` may return local
-council pages when the real target is a statute on `legislation.gov.uk`. For legal/regulatory
-questions, start with the exact statute, provision, instrument title, and narrow official domain;
-only add broader government domains as a fallback.
-
-Good for medical/guideline prompts:
-
-```json
-{
-  "includeDomains": [
-    "pubmed.ncbi.nlm.nih.gov",
-    "pmc.ncbi.nlm.nih.gov",
-    "thoracic.org",
-    "ersnet.org"
-  ]
-}
-```
+Use source filtering only if you know exactly the URLs or domains you are targeting or not targeting.
+The exact target or exclusion must come from the user or a previous result. Do not turn a preference
+for official, academic, regulatory, or other source types into an inferred filter. State those
+preferences in `q` and search broadly instead.
 
 For incident or local news prompts, keep the key entity in every facet:
 
@@ -358,20 +380,9 @@ Run separate searches for: Renault ransomware claim, Renault official statement,
 supplier involvement, and Renault French cybersecurity coverage.
 ```
 
-If a narrow official domain may not contain the answer, include a fallback instruction:
-
-```text
-Search {official_domain} first. If no relevant result exists there, say none found and then search
-{fallback_source_types}.
-```
-
-For rare academic, registry, or legal lookups, hard filters are not enough by themselves. Keep the
-core entity, exact phrase, provision, or study design in the query, and ask Linkup to say no relevant
-result was found instead of filling the answer with unrelated results from the right domain.
-
-Use `includeDomains`, `excludeDomains`, `fromDate`, and `toDate` when those constraints are known.
-These filters are enforced automatically, so the query does not need to repeat them unless it helps
-clarify intent.
+For rare academic, registry, or legal lookups, keep the core entity, exact phrase, provision, or
+study design in the query, and ask Linkup to say no relevant result was found rather than filling the
+answer with loosely related results.
 
 ## Local Place Rules
 
@@ -400,8 +411,8 @@ Avoid:
 - keyword soup with no fields
 - broad `tell me more`
 - asking `standard` to discover a URL and then scrape it
-- `fast` prompts with instructions or sequencing
-- soft source preferences when exact source families matter
+- `flash` or `fast` prompts with instructions or sequencing (they ignore everything but keywords)
+- source filters without exact target or exclusion URLs or domains
 - over-polishing local place names and losing exact native spelling
 - repeated rewordings of the same search instead of distinct facets
 - invented URLs or invented domains
